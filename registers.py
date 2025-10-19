@@ -1,6 +1,6 @@
 class Registers:
-    PC = 0b00000000
-    ACC = 0b00000000
-    MAR = 0b00000000
-    MDR = 0b00000000
-    CIR = 0b00000000
+    PC = 0x00
+    ACC = 0x00
+    MAR = 0x00
+    MDR = 0x00
+    CIR = 0x00
