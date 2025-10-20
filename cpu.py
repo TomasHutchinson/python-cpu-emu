@@ -19,6 +19,11 @@ class CPU:
         self.registers = Registers()
         self.alu = ALU()
         self.clock_rate = _clock_rate
+
+        self.address_bus = Bus("Address Bus")
+        self.data_bus = Bus("Data Bus")
+        self.control_bus = Bus("Control Bus")
+
     
     def load_rom(self, rom):
         if len(self.memory) < len(rom):
@@ -28,10 +33,18 @@ class CPU:
         self.memory = rom
     
     def fetch(self):
-        self.registers.MAR = self.registers.PC
+        self.address_bus.write(self.registers.PC)
+        self.registers.MAR = self.address_bus.read()
+
+        self.data_bus.write(self.memory[self.registers.MAR])
+
+        # Move data from bus to MDR
+        self.registers.MDR = self.data_bus.read()
+
+        # Increment PC
         self.registers.PC += 1
-        self.registers.MDR = self.memory[self.registers.MAR]
-        # Ready for decode next tick
+
+        # Next stage: decode
         self.stage = 1
 
     def decode(self):
@@ -50,17 +63,34 @@ class CPU:
             case "END":
                 self.registers.PC = len(self.memory)
             case "LDA":
-                self.registers.ACC = self.memory[data]
+                self.address_bus.write(data)
+                addr = self.address_bus.read()
+                self.data_bus.write(self.memory[addr])
+                self.registers.ACC = self.data_bus.read()
             case "STA":
-                self.memory[data] = self.registers.ACC
+                self.address_bus.write(data)
+                addr = self.address_bus.read()
+                self.data_bus.write(self.registers.ACC)
+                self.memory[addr] = self.data_bus.read()
             case "ADD":
-                self.registers.ACC = self.alu.add(self.registers.ACC, self.memory[data])
+                self.address_bus.write(data)
+                addr = self.address_bus.read()
+                self.data_bus.write(self.memory[addr])
+                operand = self.data_bus.read()
+                self.registers.ACC = self.alu.add(self.registers.ACC, operand)
             case "SUB":
-                self.registers.ACC = self.alu.sub(self.registers.ACC, self.memory[data])
+                self.address_bus.write(data)
+                addr = self.address_bus.read()
+                self.data_bus.write(self.memory[addr])
+                operand = self.data_bus.read()
+                self.registers.ACC = self.alu.sub(self.registers.ACC, operand)
             case "INP":
-                self.registers.ACC = int(input("Input: "))
+                val = int(input("Input: "))
+                self.data_bus.write(val)
+                self.registers.ACC = self.data_bus.read()
             case "OUT":
-                print(f"Output: {self.registers.ACC}")
+                self.data_bus.write(self.registers.ACC)
+                print(f"Output: {self.data_bus.read()}")
             case "BRP":
                 if self.registers.ACC >= 0:
                     self.registers.PC = data
@@ -70,10 +100,11 @@ class CPU:
             case "BRA":
                 self.registers.PC = data
             case "DAT":
-                pass  # No runtime op
+                pass
 
-        # Loop back to next fetch stage
-        self.stage = 0
+        # Reset control signals (future use)
+        self.control_bus.write(0)
+        self.stage = 0  # Return to fetch stage
 
 
     def cycle(self):
@@ -131,6 +162,18 @@ class CPU:
             dt = time.process_time() - t
             time.sleep(max(0, (1.0 / self.clock_rate) - dt))
         print(self.memory)
+
+class Bus:
+    def __init__(self, name="BUS"):
+        self.value = 0
+        self.name = name
+
+    def write(self, value):
+        self.value = value
+
+    def read(self):
+        return self.value
+
 
 
 instructionset = {
