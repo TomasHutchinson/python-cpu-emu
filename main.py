@@ -1,7 +1,7 @@
 from cpu import CPU
 from assembler import assemble
 
-cpu = CPU(128, 200)
+cpu = CPU(16, 64, 128, 200)
 
 rom = assemble("main.asm")
 print(rom)

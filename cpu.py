@@ -1,6 +1,7 @@
 import time
 from registers import Registers
 from alu import ALU
+from memory import Cache, RAM
 
 class Bus:
     def __init__(self, name="BUS"):
@@ -14,8 +15,15 @@ class Bus:
         return self.value
 
 class CPU:
-    def __init__(self, max_memory=16, _clock_rate=20):
-        self.memory = [0x00] * max_memory
+    def __init__(self, l1=16, l2 = 64, _ram=256, _clock_rate=200):
+        #self.memory = [0x00] * max_memory
+
+        self.ram = RAM(_ram, delay=0.01)             # Main memory
+        self.l2_cache = Cache(l2, self.ram, delay = 0.005)  # L2 cache
+        self.l1_cache = Cache(l1, self.l2_cache)  # L1 cache
+
+        self.memory = self.l1_cache  # CPU reads/writes go through L1
+
         self.registers = Registers()
         self.alu = ALU()
         self.clock_rate = _clock_rate
@@ -34,15 +42,18 @@ class CPU:
         self.stage = 0  # 0=IF, 1=ID, 2=EX
 
     def load_rom(self, rom):
-        if len(rom) > len(self.memory):
+        if len(rom) > len(self.ram):
             raise Exception("ROM larger than memory")
-        self.memory[:len(rom)] = rom
+        
+        for addr, val in enumerate(rom):
+            self.ram.write(addr, val)
+        #self.memory[:len(rom)] = rom
 
     # --- Pipeline stages ---
     def fetch(self):
         self.address_bus.write(self.registers.PC)
         self.registers.MAR = self.address_bus.read()
-        self.data_bus.write(self.memory[self.registers.MAR])
+        self.data_bus.write(self.memory.read(self.registers.MAR))
         self.IF_ID["MDR"] = self.data_bus.read()
         self.registers.PC += 1
         self.stage = 1
@@ -60,38 +71,48 @@ class CPU:
         data = self.ID_EX["operand"]
         name = instructionset.get(inst, "DAT")
 
+        #print(f'{name} {data}')
         match name:
             case "END":
-                self.registers.PC = len(self.memory)
+                self.registers.PC = len(self.ram)  # jump to end
+                self.registers.PC = len(self.ram)  # stop fetching
+                # flush pipeline so no stale instructions execute
+                self.IF_ID = {"MDR": 0}
+                self.ID_EX = {"instruction": 0, "operand": 0}
             case "LDA":
                 self.address_bus.write(data)
                 addr = self.address_bus.read()
-                self.data_bus.write(self.memory[addr])
+                val = self.memory.read(addr)  # goes through L1 → L2 → RAM
+                self.data_bus.write(val)
                 self.registers.ACC = self.data_bus.read()
             case "STA":
                 self.address_bus.write(data)
                 addr = self.address_bus.read()
                 self.data_bus.write(self.registers.ACC)
-                self.memory[addr] = self.data_bus.read()
+                self.memory.write(addr, self.data_bus.read())  # write-through caches
             case "ADD":
                 self.address_bus.write(data)
                 addr = self.address_bus.read()
-                self.data_bus.write(self.memory[addr])
+                val = self.memory.read(addr)
+                self.data_bus.write(val)
                 self.registers.ACC = self.alu.add(self.registers.ACC, self.data_bus.read())
             case "SUB":
                 self.address_bus.write(data)
                 addr = self.address_bus.read()
-                self.data_bus.write(self.memory[addr])
+                val = self.memory.read(addr)
+                self.data_bus.write(val)
                 self.registers.ACC = self.alu.sub(self.registers.ACC, self.data_bus.read())
             case "MUL":
                 self.address_bus.write(data)
                 addr = self.address_bus.read()
-                self.data_bus.write(self.memory[addr])
+                val = self.memory.read(addr)
+                self.data_bus.write(val)
                 self.registers.ACC = self.alu.mul(self.registers.ACC, self.data_bus.read())
             case "DIV":
                 self.address_bus.write(data)
                 addr = self.address_bus.read()
-                self.data_bus.write(self.memory[addr])
+                val = self.memory.read(addr)
+                self.data_bus.write(val)
                 self.registers.ACC = self.alu.div(self.registers.ACC, self.data_bus.read())
             case "INP":
                 val = int(input("Input: "))
@@ -103,11 +124,19 @@ class CPU:
             case "BRP":
                 if self.registers.ACC >= 0:
                     self.registers.PC = data
+                    # flush pipeline
+                    self.IF_ID = {"MDR": 0}
+                    self.ID_EX = {"instruction": 0, "operand": 0}
             case "BRZ":
                 if self.registers.ACC == 0:
                     self.registers.PC = data
+                    self.IF_ID = {"MDR": 0}
+                    self.ID_EX = {"instruction": 0, "operand": 0}
+
             case "BRA":
                 self.registers.PC = data
+                self.IF_ID = {"MDR": 0}
+                self.ID_EX = {"instruction": 0, "operand": 0}
             case "DAT":
                 pass
 
@@ -117,8 +146,9 @@ class CPU:
 
         self.stage = 0  # Next tick: fetch new instruction
 
+
     def cycle(self):
-        if self.registers.PC >= len(self.memory):
+        if self.registers.PC >= len(self.ram):
             return False
 
         # Pipeline: IF -> ID -> EX per tick
@@ -132,12 +162,12 @@ class CPU:
         return True
 
     def process(self):
-        while self.registers.PC < len(self.memory):
+        while self.registers.PC < len(self.ram):
             t0 = time.process_time()
             self.cycle()
             dt = time.process_time() - t0
             time.sleep(max(0, (1.0 / self.clock_rate) - dt))
-        print(self.memory)
+        print(f'Dump: {self.memory}')
 
 # Instruction set
 instructionset = {

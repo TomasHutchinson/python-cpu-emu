@@ -99,7 +99,8 @@ instructionset = {
     0x09 : "BRA",
     0x0A : "DAT",
     0x0B : "MUL",
-    0x0C : "DIV"
+    0x0C : "DIV",
+    0x0D : "FADD"
 }
 
 mnemonic_to_opcode = {v: k for k, v in instructionset.items()}

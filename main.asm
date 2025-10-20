@@ -20,6 +20,7 @@ LOOP    LDA N
 
 PROGRAM_END LDA F1
         DIV TWO
+        DIV TWO
         OUT
         END
 
@@ -29,4 +30,4 @@ F1      DAT 0
 TEMP    DAT 0
 ZERO    DAT 0
 ONE     DAT 1
-TWO     DAT 3
+TWO     DAT 2
