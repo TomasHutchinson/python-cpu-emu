@@ -1,33 +1,40 @@
-START   INP 0
-        STA N
-        LDA ZERO
-        STA F0
-        LDA ONE
-        STA F1
+	LDA H
+	ASC
+	LDA e
+	ASC
+	LDA l
+	ASC
+	ASC
+	LDA o
+	ASC
+	LDA space
+	ASC
+	LDA W
+	ASC
+	LDA o
+	ASC
+	LDA r
+	ASC
+	LDA l
+	ASC
+	LDA d
+	ASC
+	LDA excl
+	ASC
+	LDA nl
+	ASC
+	END
 
-LOOP    LDA N
-        SUB ONE
-        STA N
-        BRZ PROGRAM_END
-        LDA F1
-        ADD F0
-        STA TEMP
-        LDA F1
-        STA F0
-        LDA TEMP
-        STA F1
-        BRA LOOP
 
-PROGRAM_END LDA F1
-        DIV TWO
-        DIV TWO
-        OUT
-        END
 
-N       DAT 0
-F0      DAT 0
-F1      DAT 0
-TEMP    DAT 0
-ZERO    DAT 0
-ONE     DAT 1
-TWO     DAT 2
+H DAT 72
+e DAT 101
+l DAT 108
+o DAT 111
+space  DAT 32
+W DAT 87
+r DAT 114
+d DAT 100
+excl DAT 33
+nl	DAT 10
+

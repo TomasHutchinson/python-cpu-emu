@@ -3,6 +3,8 @@ from registers import Registers
 from alu import ALU
 from memory import Cache, RAM
 
+debug_dump = False
+
 class Bus:
     def __init__(self, name="BUS"):
         self.value = 0
@@ -121,6 +123,9 @@ class CPU:
             case "OUT":
                 self.data_bus.write(self.registers.ACC)
                 print(f"Output: {self.data_bus.read()}")
+            case "ASC":
+                self.data_bus.write(self.registers.ACC)
+                print(chr(self.data_bus.read()), end="")
             case "BRP":
                 if self.registers.ACC >= 0:
                     self.registers.PC = data
@@ -167,7 +172,7 @@ class CPU:
             self.cycle()
             dt = time.process_time() - t0
             time.sleep(max(0, (1.0 / self.clock_rate) - dt))
-        print(f'Dump: {self.memory}')
+        if debug_dump: print(f'Dump: {self.memory}')
 
 # Instruction set
 instructionset = {
@@ -183,5 +188,6 @@ instructionset = {
     0x09 : "BRA",
     0x0A : "DAT",
     0x0B : "MUL",
-    0x0C : "DIV"
+    0x0C : "DIV",
+    0x0D : "ASC"
 }
